@@ -72,9 +72,9 @@ jobs:
           OUTPUT=$(dm config --file devops-maturity.yml 2>&1)
           echo "$OUTPUT"
 
-          SCORE=$(echo "$OUTPUT"     | awk '/Your score: /      {print $NF}')
+          SCORE=$(echo "$OUTPUT"     | awk '/Your score: / {print $NF}')
           LEVEL=$(echo "$OUTPUT"     | awk '/Your maturity level: / {print $NF}')
-          BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: /       {print $NF}')
+          BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: / {print $NF}')
 
           echo "score=${SCORE}"         >> "$GITHUB_OUTPUT"
           echo "level=${LEVEL}"         >> "$GITHUB_OUTPUT"

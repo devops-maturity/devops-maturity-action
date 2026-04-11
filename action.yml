@@ -100,9 +100,9 @@ runs:
         OUTPUT=$(dm config --file "${{ inputs.file }}" 2>&1)
         echo "$OUTPUT"
 
-        SCORE=$(echo "$OUTPUT"     | awk '/Your score: /      {print $NF}')
+        SCORE=$(echo "$OUTPUT"     | awk '/Your score: / {print $NF}')
         LEVEL=$(echo "$OUTPUT"     | awk '/Your maturity level: / {print $NF}')
-        BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: /       {print $NF}')
+        BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: / {print $NF}')
         # Prefer the CLI-provided Markdown badge; fall back to constructing it
         BADGE_MD=$(echo "$OUTPUT"  | sed -n 's/^Markdown badge: //p')
         if [ -z "$BADGE_MD" ] && [ -n "$BADGE_URL" ]; then
