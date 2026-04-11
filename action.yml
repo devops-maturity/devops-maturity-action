@@ -12,7 +12,7 @@ inputs:
   github-token:
     description: >
       GitHub token used to create the pull request.
-      Pass ${{ secrets.GITHUB_TOKEN }} or a PAT from your workflow.
+      Pass secrets.GITHUB_TOKEN or a PAT from your workflow.
     required: true
 
   file:
