@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate-action:
+    name: Validate action.yml
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate action.yml exists and is well-formed
+        run: |
+          if [ ! -f action.yml ]; then
+            echo "action.yml not found"
+            exit 1
+          fi
+          python3 -c "
+          import yaml, sys
+          with open('action.yml') as f:
+              data = yaml.safe_load(f)
+          required = ['name', 'description', 'runs']
+          for key in required:
+              if key not in data:
+                  print(f'Missing required key: {key}')
+                  sys.exit(1)
+          if data['runs'].get('using') != 'composite':
+              print('Expected composite action')
+              sys.exit(1)
+          print('action.yml is valid')
+          "
+
+      - name: Validate devops-maturity.yml is well-formed
+        run: |
+          python3 -c "
+          import yaml
+          with open('devops-maturity.yml') as f:
+              data = yaml.safe_load(f)
+          print('devops-maturity.yml is valid YAML')
+          print(f'Project name: {data.get(\"project_name\", \"(not set)\")}')
+          "
+
+  test-assessment:
+    name: Test devops-maturity CLI against sample file
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install devops-maturity CLI
+        run: pip install --quiet devops-maturity
+
+      - name: Run assessment against sample devops-maturity.yml
+        id: assessment
+        run: |
+          OUTPUT=$(dm config --file devops-maturity.yml 2>&1)
+          echo "$OUTPUT"
+
+          SCORE=$(echo "$OUTPUT"     | grep -oP '(?<=Your score: )\S+')
+          LEVEL=$(echo "$OUTPUT"     | grep -oP '(?<=Your maturity level: )\S+')
+          BADGE_URL=$(echo "$OUTPUT" | grep -oP '(?<=Badge URL: )\S+')
+
+          echo "score=${SCORE}"         >> "$GITHUB_OUTPUT"
+          echo "level=${LEVEL}"         >> "$GITHUB_OUTPUT"
+          echo "badge_url=${BADGE_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify assessment outputs
+        run: |
+          SCORE="${{ steps.assessment.outputs.score }}"
+          LEVEL="${{ steps.assessment.outputs.level }}"
+          BADGE_URL="${{ steps.assessment.outputs.badge_url }}"
+
+          echo "Score: $SCORE"
+          echo "Level: $LEVEL"
+          echo "Badge URL: $BADGE_URL"
+
+          if [ -z "$LEVEL" ]; then
+            echo "ERROR: level output is empty"
+            exit 1
+          fi
+
+          case "$LEVEL" in
+            WIP|PASSING|BRONZE|SILVER|GOLD) echo "Level '$LEVEL' is valid" ;;
+            *) echo "ERROR: unexpected level '$LEVEL'"; exit 1 ;;
+          esac
+
+          if [ -z "$BADGE_URL" ]; then
+            echo "ERROR: badge_url output is empty"
+            exit 1
+          fi
