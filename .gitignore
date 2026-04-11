@@ -1,0 +1,9 @@
+# SQLite database created by the devops-maturity CLI
+devops_maturity.db
+*.db
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
