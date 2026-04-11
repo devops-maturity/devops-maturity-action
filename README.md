@@ -72,7 +72,7 @@ D202: false   # Functional Testing (must have)
 
 | Input            | Required | Default                                    | Description                                              |
 |------------------|----------|--------------------------------------------|----------------------------------------------------------|
-| `github-token`   | no       | `${{ github.token }}`                      | Token used to create the pull request.                   |
+| `github-token`   | **yes**  | —                                          | Token used to create the pull request. Pass `${{ secrets.GITHUB_TOKEN }}`. |
 | `file`           | no       | `devops-maturity.yml`                      | Path to the assessment YAML file.                        |
 | `readme-path`    | no       | `README.md`                                | Path to the README file to update with the badge.        |
 | `pr-branch`      | no       | `chore/update-devops-maturity-badges`      | Branch name for the pull request.                        |

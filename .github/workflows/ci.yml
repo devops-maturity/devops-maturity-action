@@ -10,6 +10,8 @@ jobs:
   validate-action:
     name: Validate action.yml
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -49,6 +51,8 @@ jobs:
   test-assessment:
     name: Test devops-maturity CLI against sample file
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -68,9 +72,9 @@ jobs:
           OUTPUT=$(dm config --file devops-maturity.yml 2>&1)
           echo "$OUTPUT"
 
-          SCORE=$(echo "$OUTPUT"     | grep -oP '(?<=Your score: )\S+')
-          LEVEL=$(echo "$OUTPUT"     | grep -oP '(?<=Your maturity level: )\S+')
-          BADGE_URL=$(echo "$OUTPUT" | grep -oP '(?<=Badge URL: )\S+')
+          SCORE=$(echo "$OUTPUT"     | awk '/Your score: /      {print $NF}')
+          LEVEL=$(echo "$OUTPUT"     | awk '/Your maturity level: / {print $NF}')
+          BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: /       {print $NF}')
 
           echo "score=${SCORE}"         >> "$GITHUB_OUTPUT"
           echo "level=${LEVEL}"         >> "$GITHUB_OUTPUT"

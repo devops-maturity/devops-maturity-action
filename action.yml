@@ -12,9 +12,8 @@ inputs:
   github-token:
     description: >
       GitHub token used to create the pull request.
-      Defaults to the built-in GITHUB_TOKEN.
-    required: false
-    default: ${{ github.token }}
+      Pass ${{ secrets.GITHUB_TOKEN }} or a PAT from your workflow.
+    required: true
 
   file:
     description: >
@@ -101,10 +100,19 @@ runs:
         OUTPUT=$(dm config --file "${{ inputs.file }}" 2>&1)
         echo "$OUTPUT"
 
-        SCORE=$(echo "$OUTPUT"     | grep -oP '(?<=Your score: )\S+')
-        LEVEL=$(echo "$OUTPUT"     | grep -oP '(?<=Your maturity level: )\S+')
-        BADGE_URL=$(echo "$OUTPUT" | grep -oP '(?<=Badge URL: )\S+')
-        BADGE_MD=$(echo "$OUTPUT"  | grep -oP '(?<=Markdown badge: ).+')
+        SCORE=$(echo "$OUTPUT"     | awk '/Your score: /      {print $NF}')
+        LEVEL=$(echo "$OUTPUT"     | awk '/Your maturity level: / {print $NF}')
+        BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: /       {print $NF}')
+        # Prefer the CLI-provided Markdown badge; fall back to constructing it
+        BADGE_MD=$(echo "$OUTPUT"  | sed -n 's/^Markdown badge: //p')
+        if [ -z "$BADGE_MD" ] && [ -n "$BADGE_URL" ]; then
+          BADGE_MD="[![DevOps Maturity](${BADGE_URL})](https://devops-maturity.github.io/)"
+        fi
+
+        if [ -z "$LEVEL" ] || [ -z "$BADGE_URL" ]; then
+          echo "ERROR: could not parse assessment output"
+          exit 1
+        fi
 
         echo "score=${SCORE}"              >> "$GITHUB_OUTPUT"
         echo "level=${LEVEL}"              >> "$GITHUB_OUTPUT"
@@ -121,6 +129,7 @@ runs:
       run: |
         import os
         import re
+        import sys
 
         badge_url   = os.environ["BADGE_URL"]
         badge_level = os.environ["BADGE_LEVEL"]
@@ -128,7 +137,7 @@ runs:
 
         if not os.path.isfile(readme_path):
             print(f"README not found at '{readme_path}' — skipping badge update.")
-            raise SystemExit(0)
+            sys.exit(0)
 
         badge_md = (
             f"[![DevOps Maturity]({badge_url})]"
