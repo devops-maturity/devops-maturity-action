@@ -84,7 +84,7 @@ runs:
   steps:
     # ── 1. Python + devops-maturity CLI ──────────────────────────────────────
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.x'
 
@@ -175,7 +175,7 @@ runs:
     # ── 4. Open a pull request ────────────────────────────────────────────────
     - name: Create pull request
       id: create-pr
-      uses: peter-evans/create-pull-request@v7
+      uses: peter-evans/create-pull-request@v8
       with:
         token: ${{ inputs.github-token }}
         commit-message: ${{ inputs.commit-message }}
