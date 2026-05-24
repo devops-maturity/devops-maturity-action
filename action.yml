@@ -54,6 +54,13 @@ inputs:
       [devops-maturity-action](https://github.com/devops-maturity/devops-maturity-action)
       based on changes to `devops-maturity.yml`.
 
+  cli-version:
+    description: >
+      Version of the devops-maturity CLI to install (e.g. '0.1.0').
+      Defaults to latest. Pinning a specific version ensures reproducible results.
+    required: false
+    default: ''
+
 outputs:
   score:
     description: 'Overall DevOps maturity score as a percentage (e.g. "72.3%").'
@@ -90,27 +97,36 @@ runs:
 
     - name: Install devops-maturity CLI
       shell: bash
-      run: pip install --quiet devops-maturity
+      run: |
+        if [ -n "${{ inputs.cli-version }}" ]; then
+          pip install --quiet "devops-maturity==${{ inputs.cli-version }}"
+        else
+          pip install --quiet devops-maturity
+        fi
 
-    # ── 2. Run the assessment ─────────────────────────────────────────────────
+    # ── 2. Run the assessment (JSON output, no text parsing) ─────────────────
     - name: Run devops-maturity assessment
       id: assessment
       shell: bash
       run: |
-        OUTPUT=$(dm config --file "${{ inputs.file }}" 2>&1)
-        echo "$OUTPUT"
+        JSON_OUTPUT=$(dm config --file "${{ inputs.file }}" --format json 2>&1)
+        echo "$JSON_OUTPUT"
 
-        SCORE=$(echo "$OUTPUT"     | awk '/Your score: / {print $NF}')
-        LEVEL=$(echo "$OUTPUT"     | awk '/Your maturity level: / {print $NF}')
-        BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: / {print $NF}')
-        # Prefer the CLI-provided Markdown badge; fall back to constructing it
-        BADGE_MD=$(echo "$OUTPUT"  | sed -n 's/^Markdown badge: //p')
-        if [ -z "$BADGE_MD" ] && [ -n "$BADGE_URL" ]; then
-          BADGE_MD="[![DevOps Maturity](${BADGE_URL})](https://devops-maturity.github.io/)"
+        # Validate that we got valid JSON
+        if ! echo "$JSON_OUTPUT" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
+          echo "ERROR: could not parse assessment output as JSON"
+          echo "Raw output was:"
+          echo "$JSON_OUTPUT"
+          exit 1
         fi
 
+        SCORE=$(echo "$JSON_OUTPUT"    | python3 -c "import sys,json; print(json.load(sys.stdin)['score'])")
+        LEVEL=$(echo "$JSON_OUTPUT"    | python3 -c "import sys,json; print(json.load(sys.stdin)['level'])")
+        BADGE_URL=$(echo "$JSON_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['badge_url'])")
+        BADGE_MD=$(echo "$JSON_OUTPUT"  | python3 -c "import sys,json; print(json.load(sys.stdin)['badge_markdown'])")
+
         if [ -z "$LEVEL" ] || [ -z "$BADGE_URL" ]; then
-          echo "ERROR: could not parse assessment output"
+          echo "ERROR: missing required fields in JSON output"
           exit 1
         fi
 
