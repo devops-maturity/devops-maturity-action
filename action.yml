@@ -1,7 +1,5 @@
 name: 'DevOps Maturity Action'
-description: >
-  Automatically runs the devops-maturity CLI against a devops-maturity.yml file,
-  updates the README badge, and opens a pull request for review.
+description: 'Run devops-maturity CLI, update README badge, and open a PR for review.'
 author: 'devops-maturity'
 
 branding:
