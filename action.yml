@@ -104,26 +104,34 @@ runs:
           pip install --quiet devops-maturity
         fi
 
-    # ── 2. Run the assessment (JSON output, no text parsing) ─────────────────
+    # ── 2. Run the assessment ─────────────────────────────────────────────────
+    # Tries --format json first (available in CLI >= next release).
+    # Falls back to text parsing for older CLI versions.
     - name: Run devops-maturity assessment
       id: assessment
       shell: bash
       run: |
-        JSON_OUTPUT=$(dm config --file "${{ inputs.file }}" --format json 2>&1)
-        echo "$JSON_OUTPUT"
+        OUTPUT=$(dm config --file "${{ inputs.file }}" --format json 2>&1) || true
+        echo "$OUTPUT"
 
-        # Validate that we got valid JSON
-        if ! echo "$JSON_OUTPUT" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
-          echo "ERROR: could not parse assessment output as JSON"
-          echo "Raw output was:"
-          echo "$JSON_OUTPUT"
-          exit 1
+        # Try JSON path first
+        if echo "$OUTPUT" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
+          echo "→ Parsed as JSON"
+          SCORE=$(echo "$OUTPUT"    | python3 -c "import sys,json; print(json.load(sys.stdin)['score'])")
+          LEVEL=$(echo "$OUTPUT"    | python3 -c "import sys,json; print(json.load(sys.stdin)['level'])")
+          BADGE_URL=$(echo "$OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['badge_url'])")
+          BADGE_MD=$(echo "$OUTPUT"  | python3 -c "import sys,json; print(json.load(sys.stdin)['badge_markdown'])")
+        else
+          # Fallback: text parsing for older CLI (pre --format json)
+          echo "→ JSON not available, falling back to text parsing"
+          SCORE=$(echo "$OUTPUT"     | awk '/Your score: / {print $NF}')
+          LEVEL=$(echo "$OUTPUT"     | awk '/Your maturity level: / {print $NF}')
+          BADGE_URL=$(echo "$OUTPUT" | awk '/Badge URL: / {print $NF}')
+          BADGE_MD=$(echo "$OUTPUT"  | sed -n 's/^Markdown badge: //p')
+          if [ -z "$BADGE_MD" ] && [ -n "$BADGE_URL" ]; then
+            BADGE_MD="[![DevOps Maturity](${BADGE_URL})](https://devops-maturity.github.io/)"
+          fi
         fi
-
-        SCORE=$(echo "$JSON_OUTPUT"    | python3 -c "import sys,json; print(json.load(sys.stdin)['score'])")
-        LEVEL=$(echo "$JSON_OUTPUT"    | python3 -c "import sys,json; print(json.load(sys.stdin)['level'])")
-        BADGE_URL=$(echo "$JSON_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['badge_url'])")
-        BADGE_MD=$(echo "$JSON_OUTPUT"  | python3 -c "import sys,json; print(json.load(sys.stdin)['badge_markdown'])")
 
         if [ -z "$LEVEL" ] || [ -z "$BADGE_URL" ]; then
           echo "ERROR: missing required fields in JSON output"
