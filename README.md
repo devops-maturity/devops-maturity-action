@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: devops-maturity/devops-maturity-action@main
+      - uses: devops-maturity/devops-maturity-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -79,6 +79,7 @@ D202: false   # Functional Testing (must have)
 | `commit-message` | no       | `chore: update devops-maturity badges`     | Commit message for the badge update.                     |
 | `pr-title`       | no       | `chore: update devops-maturity badges`     | Title of the pull request.                               |
 | `pr-body`        | no       | *(auto-generated)*                         | Body text of the pull request.                           |
+| `cli-version`    | no       | *(latest)*                                 | Pin a specific CLI version for reproducible results (e.g. `0.1.0`). |
 
 ## Outputs
 
@@ -95,7 +96,7 @@ D202: false   # Functional Testing (must have)
 
 ```yaml
 - id: maturity
-  uses: devops-maturity/devops-maturity-action@main
+  uses: devops-maturity/devops-maturity-action@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,6 +123,17 @@ The action searches the target README for an existing DevOps Maturity
 shields.io badge using a regular expression. If one is found it is replaced
 in-place; if none exists the new badge is prepended before the first Markdown
 heading (or at the very top of the file).
+
+## Reproducibility
+
+For reproducible CI results, pin both the action and the CLI to specific versions:
+
+```yaml
+- uses: devops-maturity/devops-maturity-action@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    cli-version: '0.1.0'  # pin CLI version
+```
 
 ## License
 
