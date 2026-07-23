@@ -13,6 +13,9 @@ When a team edits their `devops-maturity.yml` assessment file the action will:
 3. Update the `README.md` badge in-place (or prepend one if none exists).
 4. Open (or update) a pull request containing the badge change for review.
 
+Set `report: true` to also generate a human-readable maturity report in the
+workflow run summary (see [Reports](#reports)).
+
 ## Usage
 
 ### Minimal setup
@@ -80,6 +83,7 @@ D202: false   # Functional Testing (must have)
 | `pr-title`       | no       | `chore: update devops-maturity badges`     | Title of the pull request.                               |
 | `pr-body`        | no       | *(auto-generated)*                         | Body text of the pull request.                           |
 | `cli-version`    | no       | *(latest)*                                 | Pin a specific CLI version for reproducible results (e.g. `0.1.0`). |
+| `report`         | no       | `false`                                    | When `true`, write a maturity report (score, category breakdown, recommendations) to the run summary. |
 
 ## Outputs
 
@@ -89,6 +93,7 @@ D202: false   # Functional Testing (must have)
 | `level`              | Maturity level: `WIP`, `PASSING`, `BRONZE`, `SILVER`, or `GOLD`. |
 | `badge-url`          | shields.io badge URL for the current maturity level.      |
 | `badge-markdown`     | Ready-to-paste Markdown snippet for the badge.            |
+| `report-path`        | Path to the generated Markdown report (only when `report: true`). |
 | `pull-request-number`| Number of the created (or updated) pull request.          |
 | `pull-request-url`   | HTML URL of the created (or updated) pull request.        |
 
@@ -105,6 +110,37 @@ D202: false   # Functional Testing (must have)
     echo "Score : ${{ steps.maturity.outputs.score }}"
     echo "Level : ${{ steps.maturity.outputs.level }}"
     echo "PR    : ${{ steps.maturity.outputs.pull-request-url }}"
+```
+
+## Reports
+
+Set `report: true` to generate a human-readable maturity report — the overall
+score and level, a per-category breakdown, and the list of unmet criteria with
+improvement recommendations. The report is written to the workflow run's
+[job summary](https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary),
+so it shows up directly on the Actions run page — no artifact download needed.
+
+```yaml
+- uses: devops-maturity/devops-maturity-action@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    report: true
+```
+
+The same Markdown is also written to a file, exposed via the `report-path`
+output, so you can upload it as an artifact if you want to keep it:
+
+```yaml
+- id: maturity
+  uses: devops-maturity/devops-maturity-action@v1
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    report: true
+
+- uses: actions/upload-artifact@v4
+  with:
+    name: devops-maturity-report
+    path: ${{ steps.maturity.outputs.report-path }}
 ```
 
 ## Permissions

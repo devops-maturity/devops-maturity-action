@@ -60,6 +60,16 @@ inputs:
     required: false
     default: ''
 
+  report:
+    description: >
+      When 'true', generate a human-readable maturity report (score, level,
+      category breakdown, and improvement recommendations) and write it to the
+      GitHub Actions job summary. The same Markdown is written to a file whose
+      path is exposed via the 'report-path' output, so it can be uploaded as an
+      artifact.
+    required: false
+    default: 'false'
+
 outputs:
   score:
     description: 'Overall DevOps maturity score as a percentage (e.g. "72.3%").'
@@ -76,6 +86,12 @@ outputs:
   badge-markdown:
     description: 'Ready-to-paste Markdown snippet for the badge.'
     value: ${{ steps.assessment.outputs.badge_markdown }}
+
+  report-path:
+    description: >
+      Filesystem path to the generated Markdown report. Only set when the
+      'report' input is 'true'.
+    value: ${{ steps.report.outputs.report_path }}
 
   pull-request-number:
     description: 'Number of the created (or updated) pull request.'
@@ -133,6 +149,76 @@ runs:
         echo "level=${LEVEL}"              >> "$GITHUB_OUTPUT"
         echo "badge_url=${BADGE_URL}"      >> "$GITHUB_OUTPUT"
         echo "badge_markdown=${BADGE_MD}"  >> "$GITHUB_OUTPUT"
+
+        # Persist the full JSON so the (optional) report step can reuse it.
+        printf '%s' "$JSON_OUTPUT" > "$RUNNER_TEMP/devops-maturity.json"
+
+    # ── 2b. Generate maturity report (optional) ──────────────────────────────
+    - name: Generate maturity report
+      id: report
+      if: ${{ inputs.report == 'true' }}
+      shell: python
+      env:
+        DM_JSON: ${{ runner.temp }}/devops-maturity.json
+      run: |
+        import json
+        import os
+
+        with open(os.environ["DM_JSON"], encoding="utf-8") as fh:
+            result = json.load(fh)
+
+        def bar(pct: float) -> str:
+            filled = int(round(pct / 10))
+            return "█" * filled + "░" * (10 - filled)
+
+        passed = result.get("passed", [])
+        failed = result.get("failed", [])
+        total = len(passed) + len(failed)
+
+        lines = [
+            f"# DevOps Maturity Report — {result.get('project_name', 'project')}",
+            "",
+            f"**Score:** {result.get('score')}%  ·  **Level:** {result.get('level')}",
+            "",
+            result.get("badge_markdown", ""),
+            "",
+            "## Category breakdown",
+            "",
+            "| Category | Score | |",
+            "|---|---:|:--|",
+        ]
+        for category, cat_score in result.get("category_scores", {}).items():
+            lines.append(f"| {category} | {cat_score:.0f}% | `{bar(cat_score)}` |")
+
+        lines += ["", f"## Met ({len(passed)}/{total})", ""]
+        lines.append(", ".join(f"`{c['id']}`" for c in passed) if passed else "_None yet._")
+
+        lines += ["", f"## Improvement recommendations ({len(failed)})", ""]
+        if failed:
+            for c in failed:
+                desc = c.get("description", "")
+                suffix = f" — {desc}" if desc else ""
+                lines.append(f"- **{c['id']} · {c['criteria']}**{suffix}")
+        else:
+            lines.append("_All criteria met. 🎉_")
+
+        report_md = "\n".join(lines) + "\n"
+
+        # Render into the Actions run summary (visible in the workflow UI).
+        summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as fh:
+                fh.write(report_md)
+
+        # Write to a file outside the repo so it is not committed to the PR.
+        report_path = os.path.join(os.environ["RUNNER_TEMP"], "devops-maturity-report.md")
+        with open(report_path, "w", encoding="utf-8") as fh:
+            fh.write(report_md)
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+            fh.write(f"report_path={report_path}\n")
+
+        print(f"Maturity report written to the job summary and {report_path}")
 
     # ── 3. Update README badge ────────────────────────────────────────────────
     - name: Update README badge
